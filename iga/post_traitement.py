@@ -416,13 +416,22 @@ def visualiser_mode_pyvista_3d(
     # Position de la caméra isométrique optimisée
     pl.camera_position = [(2.2, -2.1, 1.7), (0.0, 0.0, 0.0), (-0.3, 0.3, 0.9)]
     
-    if chemin_sauvegarde:
-        pl.screenshot(chemin_sauvegarde)
-        print(f"[PyVista 3D] Rendu sauvegardé sous : {chemin_sauvegarde}")
-        
     if afficher:
-        pl.show()
-    pl.close()
+        if chemin_sauvegarde:
+            pl.show(screenshot=chemin_sauvegarde)
+            print(f"[PyVista 3D] Rendu sauvegardé sous : {chemin_sauvegarde}")
+        else:
+            pl.show()
+    else:
+        if chemin_sauvegarde:
+            pl.show(screenshot=chemin_sauvegarde)
+            print(f"[PyVista 3D] Rendu sauvegardé sous : {chemin_sauvegarde}")
+            
+    try:
+        pl.close()
+    except Exception:
+        pass
+        
     return chemin_sauvegarde
 
 
@@ -499,12 +508,21 @@ def visualiser_planche_modes_pyvista_3d(
         pl.add_text(titre, position='upper_left', font_size=11, color='black')
         pl.camera_position = [(2.1, -2.1, 1.6), (0.0, 0.0, 0.0), (-0.3, 0.3, 0.9)]
         
-    if chemin_sauvegarde:
-        pl.screenshot(chemin_sauvegarde)
-        print(f"[PyVista Planche 3D] Rendu sauvegardé sous : {chemin_sauvegarde}")
-        
     if afficher:
-        pl.show()
-    pl.close()
+        if chemin_sauvegarde:
+            pl.show(screenshot=chemin_sauvegarde)
+            print(f"[PyVista Planche 3D] Rendu sauvegardé sous : {chemin_sauvegarde}")
+        else:
+            pl.show()
+    else:
+        if chemin_sauvegarde:
+            pl.show(screenshot=chemin_sauvegarde)
+            print(f"[PyVista Planche 3D] Rendu sauvegardé sous : {chemin_sauvegarde}")
+            
+    try:
+        pl.close()
+    except Exception:
+        pass
+        
     return chemin_sauvegarde
 
