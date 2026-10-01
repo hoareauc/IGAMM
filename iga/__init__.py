@@ -39,6 +39,10 @@ from .post_traitement import (
     evaluer_champ_pression_grille,
     afficher_comparaison_modes,
     visualiser_modes_acoustiques,
+    evaluer_mode_sur_grille_nurbs,
+    creer_grille_pyvista_mode,
+    visualiser_mode_pyvista_3d,
+    visualiser_planche_modes_pyvista_3d,
 )
 
 __all__ = [
@@ -61,4 +65,8 @@ __all__ = [
     "evaluer_champ_pression_grille",
     "afficher_comparaison_modes",
     "visualiser_modes_acoustiques",
+    "evaluer_mode_sur_grille_nurbs",
+    "creer_grille_pyvista_mode",
+    "visualiser_mode_pyvista_3d",
+    "visualiser_planche_modes_pyvista_3d",
 ]

@@ -208,3 +208,303 @@ def visualiser_modes_acoustiques(geo, frequences_iga, modes_propres, indices_mod
         plt.show()
         
     plt.close(fig)
+
+
+# =============================================================================
+# Visualisation 3D avancée avec PyVista
+# =============================================================================
+
+def evaluer_mode_sur_grille_nurbs(geo, phi_mode, n_grid=90):
+    """
+    Évalue les coordonnées cartésiennes physiques (X, Y) et le champ modal P
+    sur une grille paramétrique uniforme (u, v) in [0, 1]^2 pour un patch NURBS 2D.
+    
+    Paramètres :
+        geo (dict) : Géométrie NURBS 2D (disque, ellipse ou patch général)
+        phi_mode (ndarray) : Vecteur propre modal de taille n_dofs
+        n_grid (int) : Résolution de la grille paramétrique (n_grid x n_grid)
+        
+    Retourne :
+        X (ndarray 2D) : Coordonnées x physiques
+        Y (ndarray 2D) : Coordonnées y physiques
+        P (ndarray 2D) : Amplitude de pression acoustique modale
+    """
+    from .bspline import fonctions_base_et_derivees_nurbs_2d
+    
+    n_ctrl_xi = geo['n_ctrl_xi']
+    n_ctrl_eta = geo['n_ctrl_eta']
+    U_xi = geo['U_xi']
+    U_eta = geo['U_eta']
+    P_ctrl = geo['points_ctrl']
+    W_ctrl = geo['poids']
+    
+    u_lin = np.linspace(0.0, 1.0, n_grid)
+    v_lin = np.linspace(0.0, 1.0, n_grid)
+    
+    X = np.zeros((n_grid, n_grid), dtype=float)
+    Y = np.zeros((n_grid, n_grid), dtype=float)
+    P = np.zeros((n_grid, n_grid), dtype=float)
+    
+    for j, v in enumerate(v_lin):
+        j_span = trouver_intervalle(n_ctrl_eta, 2, v, U_eta)
+        for i, u in enumerate(u_lin):
+            i_span = trouver_intervalle(n_ctrl_xi, 2, u, U_xi)
+            W_loc = W_ctrl[i_span - 2:i_span + 1, j_span - 2:j_span + 1]
+            P_loc = P_ctrl[i_span - 2:i_span + 1, j_span - 2:j_span + 1]
+            R_loc, _, _ = fonctions_base_et_derivees_nurbs_2d(
+                i_span, j_span, u, v, 2, 2, U_xi, U_eta, W_loc
+            )
+            
+            x_pt = 0.0
+            y_pt = 0.0
+            p_pt = 0.0
+            loc = 0
+            for b_idx in range(3):
+                for a_idx in range(3):
+                    dof = (j_span - 2 + b_idx) * n_ctrl_xi + (i_span - 2 + a_idx)
+                    R_val = R_loc[loc]
+                    x_pt += R_val * P_loc[a_idx, b_idx, 0]
+                    y_pt += R_val * P_loc[a_idx, b_idx, 1]
+                    p_pt += R_val * phi_mode[dof]
+                    loc += 1
+                    
+            X[j, i] = x_pt
+            Y[j, i] = y_pt
+            P[j, i] = p_pt
+            
+    return X, Y, P
+
+
+def creer_grille_pyvista_mode(geo, phi_mode, n_grid=90, elevation_3d=True, amplitude_z=0.35):
+    """
+    Construit un maillage structuré PyVista (StructuredGrid) représentant le mode acoustique.
+    Peut être représenté à plat (z=0) ou en nappe vibrante 3D (z proportionnel à la pression).
+    
+    Paramètres :
+        geo (dict) : Géométrie IGA
+        phi_mode (ndarray) : Vecteur propre modal
+        n_grid (int) : Résolution de la grille (n_grid x n_grid)
+        elevation_3d (bool) : Activer le relief / gauchissement 3D (z = amplitude * p_norm)
+        amplitude_z (float) : Facteur d'échelle de hauteur pour la nappe vibrante 3D
+        
+    Retourne :
+        grid (pyvista.StructuredGrid) : Maillage 3D PyVista avec champs scalaires
+    """
+    import pyvista as pv
+    
+    X, Y, P = evaluer_mode_sur_grille_nurbs(geo, phi_mode, n_grid=n_grid)
+    
+    p_max = np.max(np.abs(P))
+    P_norm = P / p_max if p_max > 1e-14 else P
+    
+    if elevation_3d:
+        Z = amplitude_z * P_norm
+    else:
+        Z = np.zeros_like(P_norm)
+        
+    grid = pv.StructuredGrid(X.T, Y.T, Z.T)
+    grid.point_data['Pression'] = P.ravel(order='C')
+    grid.point_data['Pression_Normalisee'] = P_norm.ravel(order='C')
+    grid.point_data['Elevation'] = Z.ravel(order='C')
+    
+    return grid
+
+
+def creer_contour_bord_pyvista(geo, n_pts=250):
+    """
+    Génère une courbe 3D fermée (PolyData) matérialisant la frontière rigide du domaine au plan z=0.
+    """
+    import pyvista as pv
+    
+    g_type = geo.get('type', 'rectangle')
+    theta = np.linspace(0.0, 2.0 * np.pi, n_pts)
+    
+    if g_type == 'disque':
+        R = geo['R']
+        pts = np.column_stack([R * np.cos(theta), R * np.sin(theta), np.zeros(n_pts)])
+    elif g_type == 'ellipse':
+        a = geo['a']
+        b = geo['b']
+        pts = np.column_stack([a * np.cos(theta), b * np.sin(theta), np.zeros(n_pts)])
+    else:
+        Lx, Ly = geo['Lx'], geo['Ly']
+        pts = np.array([
+            [0, 0, 0], [Lx, 0, 0], [Lx, Ly, 0], [0, Ly, 0], [0, 0, 0]
+        ], dtype=float)
+        
+    poly = pv.lines_from_points(pts, close=True)
+    return poly
+
+
+def visualiser_mode_pyvista_3d(
+    geo,
+    phi_mode,
+    freq=None,
+    mode_id=1,
+    amplitude_z=0.35,
+    chemin_sauvegarde=None,
+    afficher=False
+):
+    """
+    Génère un rendu 3D haute qualité d'un mode acoustique avec PyVista :
+    - Surface 3D gauchie en élévation (onde stationnaire / nappe vibrante)
+    - Carte de couleur divergente symétrique ('RdBu_r')
+    - Ligne nodale (p = 0) en noir
+    - Bordure rigide circulaire / elliptique au plan moyen z = 0
+    - Éclairage réaliste et barre d'échelle
+    
+    Paramètres :
+        geo (dict) : Géométrie IGA
+        phi_mode (ndarray) : Vecteur modal
+        freq (float, optionnel) : Fréquence du mode propre en Hz
+        mode_id (int) : Numéro d'indice du mode
+        amplitude_z (float) : Amplitude de l'élévation 3D
+        chemin_sauvegarde (str, optionnel) : Chemin de sortie de l'image PNG
+        afficher (bool) : Ouvrir la fenêtre interactive si True
+    """
+    import pyvista as pv
+    
+    grid = creer_grille_pyvista_mode(geo, phi_mode, n_grid=110, elevation_3d=True, amplitude_z=amplitude_z)
+    poly_bord = creer_contour_bord_pyvista(geo)
+    
+    # Extraction de la ligne nodale 3D (p = 0)
+    contour_nodal = grid.contour(isosurfaces=[0.0], scalars='Pression_Normalisee')
+    
+    pl = pv.Plotter(off_screen=not afficher, window_size=(1400, 1000))
+    pl.set_background('white')
+    
+    # 1. Surface vibrante gauchie
+    sbar_kwargs = dict(
+        title="Pression acoustique normalisée",
+        vertical=False,
+        position_x=0.25,
+        position_y=0.06,
+        width=0.50,
+        height=0.08,
+        title_font_size=13,
+        label_font_size=11,
+        color='black'
+    )
+    pl.add_mesh(
+        grid,
+        scalars='Pression_Normalisee',
+        cmap='RdBu_r',
+        clim=[-1.0, 1.0],
+        smooth_shading=True,
+        specular=0.25,
+        ambient=0.20,
+        diffuse=0.85,
+        scalar_bar_args=sbar_kwargs
+    )
+    
+    # 2. Ligne nodale (pression nulle)
+    if contour_nodal.n_points > 0:
+        tube_nodal = contour_nodal.tube(radius=0.012)
+        pl.add_mesh(tube_nodal, color='black', label="Ligne nodale (p = 0)")
+        
+    # 3. Contour rigide de référence à z = 0
+    tube_bord = poly_bord.tube(radius=0.008)
+    pl.add_mesh(tube_bord, color='#444444', label="Bord du domaine (z = 0)")
+    
+    # Titre
+    titre_txt = f"Cavité Circulaire IGA NURBS - Mode #{mode_id}"
+    if freq is not None:
+        titre_txt += f" : f = {freq:.2f} Hz"
+    pl.add_text(titre_txt, position='upper_left', font_size=13, color='black')
+    pl.add_text("Visualisation 3D PyVista - Surface en onde stationnaire z = p(x, y)", position='upper_right', font_size=10, color='gray')
+    
+    # Position de la caméra isométrique optimisée
+    pl.camera_position = [(2.2, -2.1, 1.7), (0.0, 0.0, 0.0), (-0.3, 0.3, 0.9)]
+    
+    if chemin_sauvegarde:
+        pl.screenshot(chemin_sauvegarde)
+        print(f"[PyVista 3D] Rendu sauvegardé sous : {chemin_sauvegarde}")
+        
+    if afficher:
+        pl.show()
+    pl.close()
+    return chemin_sauvegarde
+
+
+def visualiser_planche_modes_pyvista_3d(
+    geo,
+    freqs_iga,
+    modes_propres,
+    indices_modes=(1, 2, 3, 4, 5, 6),
+    ordres_modaux=None,
+    amplitude_z=0.30,
+    chemin_sauvegarde=None,
+    afficher=False
+):
+    """
+    Génère une planche maîtresse 2x3 avec PyVista montrant les 6 premiers modes dynamiques
+    en surfaces ondulatoires 3D (relief de pression).
+    """
+    import pyvista as pv
+    
+    n_modes = len(indices_modes)
+    n_rows = 2
+    n_cols = 3
+    
+    pl = pv.Plotter(shape=(n_rows, n_cols), off_screen=not afficher, window_size=(1920, 1150))
+    poly_bord = creer_contour_bord_pyvista(geo)
+    tube_bord = poly_bord.tube(radius=0.009)
+    
+    for idx_plot, mode_idx in enumerate(indices_modes[:6]):
+        r = idx_plot // n_cols
+        c = idx_plot % n_cols
+        pl.subplot(r, c)
+        pl.set_background('white')
+        
+        phi = modes_propres[:, mode_idx]
+        grid = creer_grille_pyvista_mode(geo, phi, n_grid=85, elevation_3d=True, amplitude_z=amplitude_z)
+        contour_nodal = grid.contour(isosurfaces=[0.0], scalars='Pression_Normalisee')
+        
+        show_sbar = (r == 1 and c == 1)
+        sbar_kwargs = dict(
+            title="Pression normalisée",
+            vertical=False,
+            position_x=0.20,
+            position_y=0.04,
+            width=0.60,
+            height=0.10,
+            title_font_size=11,
+            label_font_size=9,
+            color='black'
+        ) if show_sbar else None
+        
+        pl.add_mesh(
+            grid,
+            scalars='Pression_Normalisee',
+            cmap='RdBu_r',
+            clim=[-1.0, 1.0],
+            smooth_shading=True,
+            specular=0.2,
+            ambient=0.25,
+            show_scalar_bar=show_sbar,
+            scalar_bar_args=sbar_kwargs
+        )
+        
+        if contour_nodal.n_points > 0:
+            pl.add_mesh(contour_nodal.tube(radius=0.012), color='black')
+            
+        pl.add_mesh(tube_bord, color='#555555')
+        
+        f_val = freqs_iga[mode_idx]
+        titre = f"Mode #{mode_idx} : {f_val:.2f} Hz"
+        if ordres_modaux is not None and mode_idx < len(ordres_modaux):
+            m, n = ordres_modaux[mode_idx]
+            titre += f" (m={m}, n={n})"
+            
+        pl.add_text(titre, position='upper_left', font_size=11, color='black')
+        pl.camera_position = [(2.1, -2.1, 1.6), (0.0, 0.0, 0.0), (-0.3, 0.3, 0.9)]
+        
+    if chemin_sauvegarde:
+        pl.screenshot(chemin_sauvegarde)
+        print(f"[PyVista Planche 3D] Rendu sauvegardé sous : {chemin_sauvegarde}")
+        
+    if afficher:
+        pl.show()
+    pl.close()
+    return chemin_sauvegarde
+

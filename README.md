@@ -133,6 +133,11 @@ python cas_tests/cavite_circulaire/validation_analytique_circulaire.py
 
 # Analyse paramétrique de convergence h (NURBS) et temps CPU
 python cas_tests/cavite_circulaire/convergence_cavite_circulaire.py
+
+# Visualisation 3D interactive et rendu haute résolution avec PyVista
+python cas_tests/cavite_circulaire/visualisation_pyvista_circulaire.py
+# (Optionnel pour ouvrir la fenêtre 3D interactive de manipulation) :
+python cas_tests/cavite_circulaire/visualisation_pyvista_circulaire.py --interactif
 ```
 
 ### 3. Cavité Elliptique (NURBS Patch Unique)
@@ -143,4 +148,15 @@ python cas_tests/cavite_elliptique/cas_cavite_elliptique.py
 # Validation numérique automatique (précision machine du contour et levée de dégénérescence)
 python cas_tests/cavite_elliptique/validation_elliptique.py
 ```
+
+---
+
+## Visualisation 3D avec PyVista
+
+Le module `iga.post_traitement` intègre des fonctions de rendu 3D basées sur **PyVista / VTK** :
+- **Élévation de surface acoustique** : Déformation $z(x, y) = \alpha \cdot \frac{p(x, y)}{\max |p|}$ créant un relief d'onde stationnaire dynamique.
+- **Lignes nodales 3D ($p=0$)** : Extraction automatique d'isosurfaces de pression nulle projetées sous forme de tubes 3D solides.
+- **Contour de paroi rigide** : Représentation de l'anneau frontière au plan moyen $z = 0$.
+- **Rendu off-screen et interactif** : Export direct de captures HD (`.png`) ou ouverture de la fenêtre 3D de navigation interactive.
+
 
