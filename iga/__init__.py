@@ -23,6 +23,7 @@ from .quadrature import (
 )
 from .geometrie import (
     creer_geometrie_rectangle,
+    creer_geometrie_disque_nurbs,
     evaluer_jacobienne_et_gradients_physiques,
 )
 from .assemblage import (
@@ -31,6 +32,7 @@ from .assemblage import (
 from .solveur import (
     resoudre_modes_acoustiques_2d,
     frequences_analytiques_cavite_rectangulaire,
+    frequences_analytiques_cavite_circulaire,
 )
 from .post_traitement import (
     evaluer_champ_pression_grille,
@@ -48,10 +50,12 @@ __all__ = [
     "quadrature_gauss_2d",
     "mapper_quadrature_vers_element",
     "creer_geometrie_rectangle",
+    "creer_geometrie_disque_nurbs",
     "evaluer_jacobienne_et_gradients_physiques",
     "assembler_systeme_acoustique_2d",
     "resoudre_modes_acoustiques_2d",
     "frequences_analytiques_cavite_rectangulaire",
+    "frequences_analytiques_cavite_circulaire",
     "evaluer_champ_pression_grille",
     "afficher_comparaison_modes",
     "visualiser_modes_acoustiques",

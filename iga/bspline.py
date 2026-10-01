@@ -238,3 +238,69 @@ def fonctions_base_et_derivees_2d(i_span, j_span, xi, eta, p_xi, p_eta, U_xi, U_
             loc_idx += 1
             
     return R, dR_dxi, dR_deta
+
+
+def fonctions_base_et_derivees_nurbs_2d(i_span, j_span, xi, eta, p_xi, p_eta, U_xi, U_eta, W_loc):
+    """
+    Calcule les fonctions de base rationnelles NURBS 2D et leurs dérivées premières partielles
+    au point (xi, eta) pour un élément donné :
+        R_{a, b}(xi, eta) = (N_a(xi) * M_b(eta) * w_{a, b}) / W(xi, eta)
+        où W(xi, eta) = sum_{k, l} N_k(xi) * M_l(eta) * w_{k, l}
+        
+    Dérivées par la règle du quotient :
+        dR/dxi  = ( d(NMw)/dxi * W - (NMw) * dW/dxi ) / W^2
+        dR/deta = ( d(NMw)/deta * W - (NMw) * dW/deta ) / W^2
+        
+    Paramètres :
+        i_span, j_span (int) : Indices d'intervalle actifs
+        xi, eta (float) : Coordonnées paramétriques
+        p_xi, p_eta (int) : Degrés polynomiaux
+        U_xi, U_eta (ndarray) : Vecteurs de nœuds
+        W_loc (ndarray de forme (p_xi + 1, p_eta + 1)) : Poids des points de contrôle locaux
+        
+    Retourne :
+        R (ndarray de taille n_loc) : Fonctions de base rationnelles NURBS
+        dR_dxi (ndarray de taille n_loc) : Dérivées partielles par rapport à xi
+        dR_deta (ndarray de taille n_loc) : Dérivées partielles par rapport à eta
+    """
+    ders_xi = derivees_fonctions_base_1d(i_span, xi, p_xi, 1, U_xi)
+    ders_eta = derivees_fonctions_base_1d(j_span, eta, p_eta, 1, U_eta)
+    
+    Nu = ders_xi[0, :]
+    dNu = ders_xi[1, :]
+    Nv = ders_eta[0, :]
+    dNv = ders_eta[1, :]
+    
+    # Évaluation de la fonction de poids W et de ses dérivées
+    W_val = np.sum(Nu[:, None] * Nv[None, :] * W_loc)
+    dW_dxi = np.sum(dNu[:, None] * Nv[None, :] * W_loc)
+    dW_deta = np.sum(Nu[:, None] * dNv[None, :] * W_loc)
+    
+    inv_W = 1.0 / W_val
+    inv_W2 = inv_W * inv_W
+    
+    n_loc = (p_xi + 1) * (p_eta + 1)
+    R = np.zeros(n_loc, dtype=float)
+    dR_dxi = np.zeros(n_loc, dtype=float)
+    dR_deta = np.zeros(n_loc, dtype=float)
+    
+    loc_idx = 0
+    for b in range(p_eta + 1):
+        M_b = Nv[b]
+        dM_b = dNv[b]
+        for a in range(p_xi + 1):
+            N_a = Nu[a]
+            dN_a = dNu[a]
+            w_ab = W_loc[a, b]
+            
+            val = N_a * M_b * w_ab
+            d_dxi = dN_a * M_b * w_ab
+            d_deta = N_a * dM_b * w_ab
+            
+            R[loc_idx] = val * inv_W
+            dR_dxi[loc_idx] = (d_dxi * W_val - val * dW_dxi) * inv_W2
+            dR_deta[loc_idx] = (d_deta * W_val - val * dW_deta) * inv_W2
+            loc_idx += 1
+            
+    return R, dR_dxi, dR_deta
+

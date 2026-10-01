@@ -13,7 +13,11 @@ Approche 100% procédurale (fonctions pures, sans POO).
 import numpy as np
 from scipy.sparse import coo_matrix, kron
 
-from .bspline import derivees_fonctions_base_1d, fonctions_base_et_derivees_2d
+from .bspline import (
+    derivees_fonctions_base_1d,
+    fonctions_base_et_derivees_2d,
+    fonctions_base_et_derivees_nurbs_2d,
+)
 from .quadrature import quadrature_gauss_1d, quadrature_gauss_2d, mapper_quadrature_vers_element
 from .geometrie import evaluer_jacobienne_et_gradients_physiques
 
@@ -112,9 +116,11 @@ def assembler_systeme_acoustique_2d(geo, n_gauss_xi=None, n_gauss_eta=None, meth
     n_dofs = geo['n_dofs']
     Lx = geo['Lx']
     Ly = geo['Ly']
+    est_nurbs = geo.get('est_nurbs', False)
+    poids_glob = geo.get('poids', None)
     
-    # Méthode tensorielle pour géométrie rectangulaire affine
-    if methode in ('auto', 'tensorielle'):
+    # Méthode tensorielle uniquement pour géométrie rectangulaire affine B-spline (non NURBS)
+    if (not est_nurbs) and (geo.get('type') == 'rectangle') and (methode in ('auto', 'tensorielle')):
         K_xi, M_xi = assembler_matrices_1d(n_ctrl_xi, p_xi, U_xi, n_gauss_xi)
         K_eta, M_eta = assembler_matrices_1d(n_ctrl_eta, p_eta, U_eta, n_gauss_eta)
         
@@ -128,7 +134,7 @@ def assembler_systeme_acoustique_2d(geo, n_gauss_xi=None, n_gauss_eta=None, meth
         M = 0.5 * (M + M.transpose())
         return K, M
         
-    # Méthode standard générale élément par élément (applicable à tout maillage non-tensoriel)
+    # Méthode standard générale élément par élément (B-splines généraux ou NURBS rationnels)
     elements = geo['elements']
     if n_gauss_xi is None:
         n_gauss_xi = p_xi + 1
@@ -157,14 +163,26 @@ def assembler_systeme_acoustique_2d(geo, n_gauss_xi=None, n_gauss_eta=None, meth
         K_elem = np.zeros((n_loc, n_loc), dtype=float)
         M_elem = np.zeros((n_loc, n_loc), dtype=float)
         
+        # Poids locaux pour NURBS
+        if est_nurbs and poids_glob is not None:
+            W_loc = poids_glob[i_span - p_xi:i_span + 1, j_span - p_eta:j_span + 1]
+        else:
+            W_loc = None
+            
         for q in range(n_q_pts):
             xi_q = pts_elem[q, 0]
             eta_q = pts_elem[q, 1]
             w_q = wts_elem[q]
             
-            R_loc, dR_dxi, dR_deta = fonctions_base_et_derivees_2d(
-                i_span, j_span, xi_q, eta_q, p_xi, p_eta, U_xi, U_eta
-            )
+            if est_nurbs and W_loc is not None:
+                R_loc, dR_dxi, dR_deta = fonctions_base_et_derivees_nurbs_2d(
+                    i_span, j_span, xi_q, eta_q, p_xi, p_eta, U_xi, U_eta, W_loc
+                )
+            else:
+                R_loc, dR_dxi, dR_deta = fonctions_base_et_derivees_2d(
+                    i_span, j_span, xi_q, eta_q, p_xi, p_eta, U_xi, U_eta
+                )
+                
             det_J, dR_dx, dR_dy = evaluer_jacobienne_et_gradients_physiques(
                 geo, i_span, j_span, dR_dxi, dR_deta
             )

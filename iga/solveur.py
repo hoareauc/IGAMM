@@ -101,3 +101,53 @@ def frequences_analytiques_cavite_rectangulaire(Lx, Ly, c=343.0, max_m=8, max_n=
     ordres_modaux = [item[1] for item in modes_analytiques]
     
     return frequences_triees, ordres_modaux
+
+
+def frequences_analytiques_cavite_circulaire(R=1.0, c=343.0, max_m=10, max_n=6):
+    """
+    Calcule les fréquences propres analytiques exactes d'une cavité acoustique circulaire 2D (rayon R)
+    à parois rigides (conditions de Neumann homogènes dp/dr = 0 à r = R).
+    
+    Les solutions de l'équation de Helmholtz en coordonnées polaires sont :
+        p_{m, n}(r, theta) = J_m(k_{m, n} * r) * [cos(m * theta) ou sin(m * theta)]
+        k_{m, n} = alpha'_{m, n} / R
+        f_{m, n} = (c * alpha'_{m, n}) / (2 * pi * R)
+        où alpha'_{m, n} est le n-ième zéro positif de la dérivée de la fonction de Bessel J'_m(x) = 0.
+        
+    Paramètres :
+        R (float) : Rayon de la cavité circulaire (m)
+        c (float) : Célérité acoustique (m/s)
+        max_m (int) : Ordre azimutal maximal m
+        max_n (int) : Ordre radial maximal n
+        
+    Retourne :
+        frequences_triees (ndarray) : Fréquences propres analytiques (Hz) triées par ordre croissant
+        ordres_modaux (list of tuple) : Paires (m, n) correspondantes (avec multiplicité 2 pour m > 0)
+        zeros_bessel (list of float) : Valeurs des zéros alpha'_{m, n}
+    """
+    import scipy.special as sp
+    
+    modes_circulaires = []
+    # Mode constant (m=0, n=0) : fréquence nulle
+    modes_circulaires.append((0.0, (0, 0), 0.0))
+    
+    for m in range(max_m + 1):
+        # sp.jnp_zeros(m, nt) retourne les nt premiers zéros positifs de J'_m(x)
+        zeros = sp.jnp_zeros(m, max_n)
+        for n_idx, z in enumerate(zeros):
+            f_mn = (c * z) / (2.0 * np.pi * R)
+            n_mode = n_idx + 1
+            # Pour m = 0, le mode est simple (axisymétrique).
+            # Pour m >= 1, le mode a une multiplicité 2 (solutions en cos(m*theta) et sin(m*theta)).
+            mult = 1 if m == 0 else 2
+            for _ in range(mult):
+                modes_circulaires.append((f_mn, (m, n_mode), float(z)))
+                
+    modes_circulaires.sort(key=lambda item: item[0])
+    
+    frequences_triees = np.array([item[0] for item in modes_circulaires])
+    ordres_modaux = [item[1] for item in modes_circulaires]
+    zeros_bessel = [item[2] for item in modes_circulaires]
+    
+    return frequences_triees, ordres_modaux, zeros_bessel
+
