@@ -27,7 +27,9 @@ IGAMM/
         ├── __init__.py
         ├── cas_cavite_rectangulaire.py   # Script principal de calcul et tracé des modes
         ├── validation_analytique.py      # Test unitaire de validation et non-régression
-        └── modes_cavite_rectangulaire.png# Cartographies 2D des modes propres acoustiques
+        ├── convergence_k_rafinement.py   # Analyse paramétrique de convergence du k-rafinement
+        ├── modes_cavite_rectangulaire.png# Cartographies 2D des modes propres acoustiques
+        └── convergence_k_rafinement_modes_1_5_10.png # Courbes d'erreur vs DDL (p = 2 à 7)
 ```
 
 ---
@@ -75,3 +77,10 @@ Pour lancer les tests de validation numérique automatique :
 ```bash
 python cas_tests/cavite_rectangulaire/validation_analytique.py
 ```
+
+Pour lancer l'analyse de convergence du $k$-rafinement (modes 1, 5, 10 de $p=2$ à $p=7$) :
+
+```bash
+python cas_tests/cavite_rectangulaire/convergence_k_rafinement.py
+```
+
