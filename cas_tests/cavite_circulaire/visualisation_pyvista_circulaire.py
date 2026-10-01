@@ -41,7 +41,9 @@ def executer_visualisation_pyvista_circulaire(
     n_el_eta=14,
     num_modes=8,
     sauvegarder=True,
-    afficher=False
+    afficher=False,
+    mode_cible=None,
+    afficher_planche_seule=False
 ):
     """
     Calcule les modes propres et produit les visualisations 3D PyVista de la cavité circulaire.
@@ -65,6 +67,46 @@ def executer_visualisation_pyvista_circulaire(
     
     dossier_sortie = os.path.dirname(os.path.abspath(__file__))
     fichiers_rendus = []
+    
+    # Cas A : un mode précis est demandé
+    if mode_cible is not None:
+        if mode_cible < 0 or mode_cible >= num_modes:
+            raise ValueError(f"Mode demandé {mode_cible} invalide (doit être entre 0 et {num_modes-1}).")
+        f_m = freqs_iga[mode_cible]
+        nom_m = f"mode_{mode_cible}_3d_pyvista_circulaire.png"
+        p_m = os.path.join(dossier_sortie, nom_m)
+        print(f"\n[PyVista 3D] Visualisation du Mode #{mode_cible} (f = {f_m:.2f} Hz)...")
+        visualiser_mode_pyvista_3d(
+            geo,
+            modes_propres[:, mode_cible],
+            freq=f_m,
+            mode_id=mode_cible,
+            amplitude_z=0.35 * R,
+            chemin_sauvegarde=p_m if sauvegarder else None,
+            afficher=afficher
+        )
+        if sauvegarder:
+            fichiers_rendus.append(p_m)
+        return fichiers_rendus
+
+    # Cas B : seule la planche 2x3 est demandée
+    if afficher_planche_seule:
+        nom_planche = "planche_6modes_3d_pyvista_circulaire.png"
+        p_planche = os.path.join(dossier_sortie, nom_planche)
+        print("\n[PyVista 3D] Visualisation de la planche 2x3 interactive...")
+        visualiser_planche_modes_pyvista_3d(
+            geo,
+            freqs_iga,
+            modes_propres,
+            indices_modes=(1, 2, 3, 4, 5, 6),
+            ordres_modaux=ordres_modaux,
+            amplitude_z=0.28 * R,
+            chemin_sauvegarde=p_planche if sauvegarder else None,
+            afficher=afficher
+        )
+        if sauvegarder:
+            fichiers_rendus.append(p_planche)
+        return fichiers_rendus
     
     # 2. Rendu 3D du Mode #1 (Dipolaire - 100.51 Hz)
     f_m1 = freqs_iga[1]
@@ -125,7 +167,9 @@ def executer_visualisation_pyvista_circulaire(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Visualisation 3D PyVista des modes acoustiques de la cavité circulaire IGA")
-    parser.add_argument("--interactif", action="store_true", help="Ouvrir les fenêtres 3D interactives")
+    parser.add_argument("--interactif", action="store_true", help="Ouvrir la ou les fenêtres 3D interactives")
+    parser.add_argument("--mode", type=int, default=None, help="Numéro d'un mode spécifique à ouvrir (ex: 1 ou 5)")
+    parser.add_argument("--planche", action="store_true", help="Ouvrir uniquement la planche 2x3 interactive")
     args = parser.parse_args()
     
     executer_visualisation_pyvista_circulaire(
@@ -135,5 +179,7 @@ if __name__ == "__main__":
         n_el_eta=14,
         num_modes=8,
         sauvegarder=True,
-        afficher=args.interactif
+        afficher=args.interactif,
+        mode_cible=args.mode,
+        afficher_planche_seule=args.planche
     )
