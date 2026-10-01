@@ -27,9 +27,11 @@ IGAMM/
         ├── __init__.py
         ├── cas_cavite_rectangulaire.py   # Script principal de calcul et tracé des modes
         ├── validation_analytique.py      # Test unitaire de validation et non-régression
-        ├── convergence_k_rafinement.py   # Analyse paramétrique de convergence du k-rafinement
+        ├── convergence_k_rafinement.py   # Analyse paramétrique de convergence et de temps CPU
         ├── modes_cavite_rectangulaire.png# Cartographies 2D des modes propres acoustiques
-        └── convergence_k_rafinement_modes_1_5_10.png # Courbes d'erreur vs DDL (p = 2 à 7)
+        ├── convergence_k_rafinement_modes_1_5_10.png # Erreur en fréquence vs DDL (p = 2 à 7)
+        ├── temps_calcul_k_rafinement.png # Temps d'assemblage et de résolution vs DDL (p = 2 à 7)
+        └── analyse_complete_k_rafinement.png # Planche maîtresse combinée (Précision & Temps CPU)
 ```
 
 ---
