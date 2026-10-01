@@ -401,3 +401,129 @@ def creer_geometrie_disque_nurbs(R=1.0, n_el_xi=8, n_el_eta=8):
     
     return geo
 
+
+def creer_geometrie_ellipse_nurbs(a=1.0, b=0.6, n_el_xi=12, n_el_eta=12):
+    """
+    Construit un patch NURBS 2D unique représentant exactement une cavité elliptique
+    de demi-grand axe 'a' (suivant x) et de demi-petit axe 'b' (suivant y).
+    
+    Principe mathématique :
+        L'ellipse x^2/a^2 + y^2/b^2 <= 1 s'obtient rigoureusement par transformation
+        affine (étirement anisotrope x_e = (a/R)*x_c, y_e = (b/R)*y_c) du cercle
+        exact représenté par le patch NURBS rationnel « carré gonflé » sans rotation.
+        Puisque les courbes et surfaces NURBS sont invariantes sous transformation affine,
+        l'application de ces facteurs d'échelle aux coordonnées des points de contrôle
+        avec les MÊMES poids w conserve rigoureusement le contour elliptique à la précision machine :
+            (x/a)^2 + (y/b)^2 = 1  strictement sur tout le bord paramétrique.
+        Le déterminant jacobien interne est strictement positif : det(J_ellipse) = (ab/R^2) det(J_cercle) > 0,
+        garantissant l'absence totale de singularité polaire, de pli ou d'auto-intersection.
+        
+    Paramètres :
+        a (float) : Demi-axe selon x (m) (typiquement demi-grand axe si a >= b)
+        b (float) : Demi-axe selon y (m) (typiquement demi-petit axe si b <= a)
+        n_el_xi (int) : Nombre d'éléments selon xi après raffinement par insertion de nœuds
+        n_el_eta (int) : Nombre d'éléments selon eta après raffinement par insertion de nœuds
+        
+    Retourne :
+        geo (dict) : Description géométrique complète compatible avec l'assembleur IGA
+    """
+    assert a > 0.0, "Le demi-axe a doit être strictement positif."
+    assert b > 0.0, "Le demi-axe b doit être strictement positif."
+    assert n_el_xi >= 1 and n_el_eta >= 1, "Le nombre d'éléments doit être >= 1."
+    
+    s2 = 1.0 / np.sqrt(2.0)
+    
+    # Patch de base quadratique 3x3 pour l'ellipse
+    P_base = np.zeros((3, 3, 2), dtype=float)
+    W_base = np.ones((3, 3), dtype=float)
+    
+    # 4 coins avec mise à l'échelle (a, b)
+    P_base[0, 0] = [-a * s2, -b * s2]
+    P_base[2, 0] = [ a * s2, -b * s2]
+    P_base[2, 2] = [ a * s2,  b * s2]
+    P_base[0, 2] = [-a * s2,  b * s2]
+    
+    # 4 milieux d'arêtes (tangentes aux axes x et y avec poids w = 1/sqrt(2))
+    P_base[1, 0] = [0.0, -np.sqrt(2.0) * b]
+    P_base[2, 1] = [ np.sqrt(2.0) * a, 0.0]
+    P_base[1, 2] = [0.0,  np.sqrt(2.0) * b]
+    P_base[0, 1] = [-np.sqrt(2.0) * a, 0.0]
+    
+    W_base[1, 0] = s2
+    W_base[2, 1] = s2
+    W_base[1, 2] = s2
+    W_base[0, 1] = s2
+    
+    # Centre (poids 1.0)
+    P_base[1, 1] = [0.0, 0.0]
+    W_base[1, 1] = 1.0
+    
+    # Forme projective homogène (w*x, w*y, w)
+    P_homog = np.zeros((3, 3, 3), dtype=float)
+    P_homog[:, :, :2] = P_base * W_base[:, :, None]
+    P_homog[:, :, 2] = W_base
+    
+    U_xi_base = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=float)
+    U_eta_base = np.array([0.0, 0.0, 0.0, 1.0, 1.0, 1.0], dtype=float)
+    
+    # Nœuds uniformes à insérer
+    noeuds_xi = [i / float(n_el_xi) for i in range(1, n_el_xi)]
+    noeuds_eta = [j / float(n_el_eta) for j in range(1, n_el_eta)]
+    
+    if len(noeuds_xi) > 0 or len(noeuds_eta) > 0:
+        U_xi, U_eta, points_ctrl, poids = raffiner_surface_nurbs_2d(
+            U_xi_base, U_eta_base, P_homog, 2, 2, noeuds_xi, noeuds_eta
+        )
+    else:
+        U_xi = U_xi_base
+        U_eta = U_eta_base
+        points_ctrl = P_base
+        poids = W_base
+        
+    n_ctrl_xi = points_ctrl.shape[0]
+    n_ctrl_eta = points_ctrl.shape[1]
+    
+    elements = []
+    for j_span in range(2, n_ctrl_eta):
+        eta_min = U_eta[j_span]
+        eta_max = U_eta[j_span + 1]
+        if eta_max <= eta_min:
+            continue
+        for i_span in range(2, n_ctrl_xi):
+            xi_min = U_xi[i_span]
+            xi_max = U_xi[i_span + 1]
+            if xi_max <= xi_min:
+                continue
+            elements.append({
+                'i_span': i_span,
+                'j_span': j_span,
+                'xi_lim': (xi_min, xi_max),
+                'eta_lim': (eta_min, eta_max)
+            })
+            
+    geo = {
+        'type': 'ellipse',
+        'est_nurbs': True,
+        'a': float(a),
+        'b': float(b),
+        'Lx': 2.0 * float(a),
+        'Ly': 2.0 * float(b),
+        'p_xi': 2,
+        'p_eta': 2,
+        'n_el_xi': int(n_el_xi),
+        'n_el_eta': int(n_el_eta),
+        'n_ctrl_xi': int(n_ctrl_xi),
+        'n_ctrl_eta': int(n_ctrl_eta),
+        'n_dofs': int(n_ctrl_xi * n_ctrl_eta),
+        'U_xi': U_xi,
+        'U_eta': U_eta,
+        'points_ctrl': points_ctrl,
+        'poids': poids,
+        'elements': elements,
+        'points_ctrl_base': P_base,
+        'poids_base': W_base
+    }
+    
+    return geo
+
+

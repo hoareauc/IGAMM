@@ -24,6 +24,7 @@ from .quadrature import (
 from .geometrie import (
     creer_geometrie_rectangle,
     creer_geometrie_disque_nurbs,
+    creer_geometrie_ellipse_nurbs,
     evaluer_jacobienne_et_gradients_physiques,
 )
 from .assemblage import (
@@ -51,6 +52,7 @@ __all__ = [
     "mapper_quadrature_vers_element",
     "creer_geometrie_rectangle",
     "creer_geometrie_disque_nurbs",
+    "creer_geometrie_ellipse_nurbs",
     "evaluer_jacobienne_et_gradients_physiques",
     "assembler_systeme_acoustique_2d",
     "resoudre_modes_acoustiques_2d",

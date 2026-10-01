@@ -34,16 +34,24 @@ IGAMM/
     │   ├── temps_calcul_k_rafinement.png # Temps d'assemblage et de résolution vs DDL (p = 2 à 7)
     │   └── analyse_complete_k_rafinement.png # Planche maîtresse combinée (Précision & Temps CPU)
     │
-    └── cavite_circulaire/             # Cas test 2 : Cavité circulaire 2D (Rayon R)
+    │
+    ├── cavite_circulaire/             # Cas test 2 : Cavité circulaire 2D (Rayon R)
+    │   ├── __init__.py
+    │   ├── cas_cavite_circulaire.py      # Calcul modal IGA NURBS et comparaison Bessel
+    │   ├── validation_analytique_circulaire.py # Test unitaire automatique
+    │   ├── convergence_cavite_circulaire.py # Analyse de convergence h et scalabilité CPU
+    │   ├── geometrie_control_net_cavite_circulaire.png # Géométrie, points de contrôle et control net
+    │   ├── modes_cavite_circulaire.png   # Cartographies 2D des modes propres cylindriques
+    │   ├── convergence_cavite_circulaire_modes.png # Erreur vs DDL pour modes cibles
+    │   ├── temps_calcul_cavite_circulaire.png # Temps d'assemblage et solveur vs DDL
+    │   └── analyse_complete_cavite_circulaire.png # Planche maîtresse complète (Précision & CPU)
+    │
+    └── cavite_elliptique/             # Cas test 3 : Cavité elliptique 2D (Demi-axes a et b)
         ├── __init__.py
-        ├── cas_cavite_circulaire.py      # Calcul modal IGA NURBS et comparaison Bessel
-        ├── validation_analytique_circulaire.py # Test unitaire automatique
-        ├── convergence_cavite_circulaire.py # Analyse de convergence h et scalabilité CPU
-        ├── geometrie_control_net_cavite_circulaire.png # Géométrie, points de contrôle et control net
-        ├── modes_cavite_circulaire.png   # Cartographies 2D des modes propres cylindriques
-        ├── convergence_cavite_circulaire_modes.png # Erreur vs DDL pour modes cibles
-        ├── temps_calcul_cavite_circulaire.png # Temps d'assemblage et solveur vs DDL
-        └── analyse_complete_cavite_circulaire.png # Planche maîtresse complète (Précision & CPU)
+        ├── cas_cavite_elliptique.py      # Calcul modal et tracé des modes (Mathieu)
+        ├── validation_elliptique.py      # Test unitaire (contour exact et levée de dégénérescence)
+        ├── geometrie_control_net_cavite_elliptique.png # Réseau de contrôle 3x3 et maillage raffiné
+        └── modes_cavite_elliptique.png   # Cartographies 2D des modes dipolaires, quadripolaires, etc.
 ```
 
 ---
@@ -79,6 +87,15 @@ Pour éviter la singularité polaire en $r=0$ (liée aux coordonnées polaires s
 - 9 points de contrôle de base avec poids $w = 1$ aux 4 coins et au centre, et $w = 1/\sqrt{2}$ aux milieux des arêtes.
 - Le bord paramétrique reproduit **strictement le cercle $r=R$ à la précision machine**.
 - Le raffinement $h$ par insertion de nœuds en coordonnées projectives préserve la géométrie exacte sans aucune erreur de maillage.
+
+### 3. Cavité Elliptique (Demi-Axes $a$ et $b$)
+L'ellipse $\frac{x^2}{a^2} + \frac{y^2}{b^2} \le 1$ est construite par transformation affine exacte du cercle NURBS :
+$$x(\xi, \eta) = \frac{a}{R} X_{\text{cercle}}(\xi, \eta), \quad y(\xi, \eta) = \frac{b}{R} Y_{\text{cercle}}(\xi, \eta)$$
+- **Contour exact** : Grâce à l'invariance affine des NURBS, le contour physique satisfait $\frac{x^2}{a^2} + \frac{y^2}{b^2} = 1$ **strictement à la précision machine ($~10^{-15}$)** sur tout le bord.
+- **Régularité du mapping** : $\det(J_{\text{ellipse}}) = \frac{a b}{R^2} \det(J_{\text{cercle}}) > 0$ partout dans le domaine (aucun pli, ni singularité).
+- **Physique (Fonctions de Mathieu)** : L'excentricité $e = \sqrt{1 - b^2/a^2}$ brise la symétrie circulaire et lève la dégénérescence des modes dipolaires :
+  - Mode longitudinal selon le grand axe $x$ (fréquence plus basse, mode pair $ce_1$)
+  - Mode transversal selon le petit axe $y$ (fréquence plus haute, mode impair $se_1$)
 
 ---
 
@@ -116,5 +133,14 @@ python cas_tests/cavite_circulaire/validation_analytique_circulaire.py
 
 # Analyse paramétrique de convergence h (NURBS) et temps CPU
 python cas_tests/cavite_circulaire/convergence_cavite_circulaire.py
+```
+
+### 3. Cavité Elliptique (NURBS Patch Unique)
+```bash
+# Calcul modal, réseau de contrôle et tracé des modes (Mathieu)
+python cas_tests/cavite_elliptique/cas_cavite_elliptique.py
+
+# Validation numérique automatique (précision machine du contour et levée de dégénérescence)
+python cas_tests/cavite_elliptique/validation_elliptique.py
 ```
 
